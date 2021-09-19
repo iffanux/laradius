@@ -1,0 +1,74 @@
+version: '3'
+
+services:
+  db:
+    image: mysql:5.7
+    restart: unless-stopped
+    ports: 
+      - "3306:3306"
+    environment:
+      MYSQL_DATABASE: 'radius'
+      MYSQL_USER: 'radius'
+      MYSQL_PASSWORD: 'radiusdbpw'
+      MYSQL_ROOT_PASSWORD: "dRAMAqueen@2017"
+    volumes:
+      - /etc/localtime:/etc/localtime
+      - ./db:/var/lib/mysql
+
+  radius:
+    container_name: radius
+    image: ifconn/freeradius
+    user: "$UID:$GID"
+    restart: unless-stopped
+    depends_on: 
+      - db
+    ports:
+      - '1812:1812/udp'
+      - '1813:1813/udp'
+    environment:
+      - MYSQL_HOST=db
+      - MYSQL_PORT=3306
+      - MYSQL_DATABASE=radius
+      - MYSQL_USER=radius
+      - MYSQL_PASSWORD=radiusdbpw
+      # Optional settings
+      - DEFAULT_CLIENT_SECRET=14t3ConnX
+    volumes:
+      - /etc/localtime:/etc/localtime
+      - ./data/freeradius:/data
+      - ./data/freeradius/sql:/etc/freeradius/mods-enabled/sql
+      - ./data/freeradius/mysql/queries.conf:/etc/freeradius/mods-config/sql/main/mysql/queries.conf
+    # If you want to disable debug output, remove the command parameter
+    command: -X
+
+  webapps:
+    container_name: webapps
+    image: ifconx/webapps:latest
+    user: "$UID:$GID"
+    ports:
+      - '8080:80'
+    volumes:
+      - /etc/localtime:/etc/localtime
+      - ./apps:/var/www/html
+      - ./apache/default.conf:/etc/apache2/sites-enabled/000-default.conf
+    depends_on:
+      - db
+      
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    container_name: pma
+    links:
+      - db
+    environment:
+      PMA_HOST: db
+      PMA_PORT: 3306
+      PMA_ARBITRARY: 1
+    restart: always
+    ports:
+      - 8081:80
+    volumes:
+      - /etc/localtime:/etc/localtime
+
+volumes:
+  db:
+  apps:
